@@ -35,7 +35,7 @@ Arguments:
 - `model` (required): Model backend to use, either "pytorch" for PyTorch or "onnx" for ONNX Runtime.
 - `dataset`: Dataset variant to use, either "normal" or "filtered" (default: "normal").
 - `gpu_id`: ID of the GPU to use (default: 0).
-- `batches`: Comma-separated batch sizes to run (default: "1,4,8,16,32").
+- `batches`: Comma-separated batch sizes to run (default: "1,2,4,8,16,32").
 
 To run the CPU benchmarks, use the `run_benchmark_cpu.py` script:
 
@@ -47,6 +47,6 @@ Arguments:
 - `model`: Specify the model backend to use, either "pytorch" for PyTorch or "onnx" for ONNX Runtime (default: "pytorch").
 - `dataset`: Specify the dataset to use, either "normal" or "filtered" (default: "normal").
 - `threads`: Specify the number of CPU threads to use (default: 1).
-- `batches`: Specify the comma-separated batch sizes to run (default: "1,4,8,16,32").
+- `batches`: Specify the comma-separated batch sizes to run (default: "1,2,4").
 
 The scripts will output the number of messages processed per second for each batch size.

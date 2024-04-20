@@ -87,7 +87,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, choices=["normal", "filtered"], default="normal", help="Dataset to use")
     parser.add_argument("--model", type=str, choices=["pytorch", "onnx"], default="pytorch", help="Model to use")
     parser.add_argument("--gpu", type=int, default=0, help="GPU ID to use")
-    parser.add_argument("--batches", type=str, default="1,4,8,16,32", help="Comma-separated batch sizes to run")
+    parser.add_argument("--batches", type=str, default="1,2,4,8,16,32", help="Comma-separated batch sizes to run")
 
     args = parser.parse_args()
 
