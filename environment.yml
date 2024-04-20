@@ -1,0 +1,21 @@
+name: bench
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12  # Specify your Python version
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=12.1  # Ensure matching CUDA version with PyTorch
+  - pandas
+  - tqdm
+  - pip
+  - pip:
+      - --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+      - onnxruntime-gpu
+      - transformers[onnx]
+      - optimum[onnxruntime-gpu]
+
