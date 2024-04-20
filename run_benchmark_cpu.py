@@ -91,7 +91,7 @@ def sentiment_analysis_batched(model_id, df, field_name, batch_size, threads):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark CPUs running BERT code")
     parser.add_argument("--dataset", type=str, choices=["normal", "filtered"], default="normal", help="Dataset to use")
-    parser.add_argument("--model", type=str, choices=["torch", "onnx"], default="torch", help="Model to use")
+    parser.add_argument("--model", type=str, choices=["pytorch", "onnx"], required=True, help="Model to use")
     parser.add_argument("--threads", type=int, default=1, help="Number of CPU threads to use")
     parser.add_argument("--batches", type=str, default="1,4,8,16,32", help="Comma-separated batch sizes to run")
 
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     for batch_size in batch_sizes:
         if args.model == "onnx":
             elapsed_time, messages_per_second = sentiment_analysis_onnx_batched(model_id_onnx, df, field_name, batch_size=batch_size, threads=args.threads)
-        elif args.model == "torch":
+        elif args.model == "pytorch":
             elapsed_time, messages_per_second = sentiment_analysis_batched(model_id, df, field_name, batch_size=batch_size, threads=args.threads)
    
         results[batch_size] = {'elapsed_time': elapsed_time, 'messages_per_second': messages_per_second}
