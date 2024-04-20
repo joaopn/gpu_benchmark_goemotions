@@ -5,11 +5,11 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.12  # Specify your Python version
+  - python=3.11
   - pytorch
   - torchvision
   - torchaudio
-  - pytorch-cuda=12.1  # Ensure matching CUDA version with PyTorch
+  - pytorch-cuda=12.1
   - pandas
   - tqdm
   - pip
