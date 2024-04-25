@@ -5,13 +5,15 @@ GPU and CPU Benchmark of the [`SamLowe/roberta-base-go_emotions`](https://huggin
 ## Results
 GPU insights:
 - ONNX with CUDA is up to ~40% faster than pytorch. It can be optimized further with [TensorRT](https://huggingface.co/docs/optimum/onnxruntime/usage_guides/gpu#tensorrtexecutionprovider) or [model quantization](https://huggingface.co/docs/optimum/main/en/onnxruntime/usage_guides/quantization)
-- For reddit comments on the GPU, batch size 2 or 4 is fastest
+- For reddit comments on the GPU, batch size 2 or 4 is usually fastest
 - The RTX 4090 is 4-5X faster than a Tesla P40, but around 9X more expensive (~$1800 vs ~$200 used)
+- The H100 performs 10-20% better than the 4090, but it is around 15X more expensive (thanks @ruggsea for the H100 numbers!)
 
 CPU insights:
 - ONNX is up to ~60% faster than pytorch.  It can be optimized further with [model quantization](https://huggingface.co/docs/optimum/main/en/onnxruntime/usage_guides/)
 - For reddit comments on the CPU, unbatched and single-threaded is always faster
 - A fully loaded 2x Epyc 7702 64C (Zen2 Rome) system is about equivalent to the RTX 4090 (~20% faster on the normal dataset, ~20% slower on the filtered dataset)
+
 
 ### Benchmark results
 
@@ -20,14 +22,16 @@ CPU insights:
 <summary>GPU results for the normal dataset</summary>
 
 
-| GPU/batch size       |    1   |      2     |      4     |    8   |   16   |   32   |
-|----------------------|:------:|:----------:|:----------:|:------:|:------:|:------:|
-| RTX 4090 (onnx)      | 529.99 |   806.25   | **995.21** | 973.02 | 789.57 | 582.33 |
-| RTX 4090 (pytorch)   | 305.37 |   526.76   | **770.99** | 764.37 | 599.78 | 435.20 |
-| RTX 2080Ti (onnx)    | 259.95 | **308.22** |   307.64   | 260.16 | 202.73 | 154.96 |
-| RTX 2080Ti (pytorch) | 119.95 |   187.07   | **261.68** | 249.27 | 199.35 | 152.25 |
-| Tesla P40 (onnx)     | 203.06 | **246.09** |   233.86   | 193.70 | 150.43 | 116.60 |
-| Tesla P40 (pytorch)  | 152.85 |   201.74   | **207.14** | 170.94 | 121.95 |  79.43 |
+| GPU/batch size        |    1   |      2     |      4     |      8      |    16   |   32   |
+|-----------------------|:------:|:----------:|:----------:|:-----------:|:-------:|:------:|
+| NVIDIA H100 (onnx)    | 206.33 |   668.66   |   938.49   | **1118.24** | 1111.50 | 916.40 |
+| NVIDIA H100 (pytorch) | 233.93 |   409.74   |   643.75   |  **761.87** |  709.18 | 583.89 |
+| RTX 4090 (onnx)       | 529.99 |   806.25   | **995.21** |    973.02   |  789.57 | 582.33 |
+| RTX 4090 (pytorch)    | 305.37 |   526.76   | **770.99** |    764.37   |  599.78 | 435.20 |
+| RTX 2080Ti (onnx)     | 259.95 | **308.22** |   307.64   |    260.16   |  202.73 | 154.96 |
+| RTX 2080Ti (pytorch)  | 119.95 |   187.07   | **261.68** |    249.27   |  199.35 | 152.25 |
+| Tesla P40 (onnx)      | 203.06 | **246.09** |   233.86   |    193.70   |  150.43 | 116.60 |
+| Tesla P40 (pytorch)   | 152.85 |   201.74   | **207.14** |    170.94   |  121.95 |  79.43 |
 
 **Table 1:** GPU benchmark in messages/s for the normal dataset. Results may vary due to CPU tokenizer performance.
 </details>
@@ -35,14 +39,16 @@ CPU insights:
 <details>
 <summary>GPU results for the filtered (>200 characters) dataset</summary>
 
-| GPU/batch size       |    1   |      2     |      4     |    8   |   16   |   32   |
-|----------------------|:------:|:----------:|:----------:|:------:|:------:|:------:|
-| RTX 4090 (onnx)      | 443.78 |   585.20   | **631.64** | 542.55 | 436.59 | 358.92 |
-| RTX 4090 (pytorch)   | 286.64 |   437.60   | **472.70** | 397.95 | 315.54 | 260.67 |
-| RTX 2080Ti (onnx)    | 171.54 | **180.66** |   164.71   | 137.18 | 113.08 |  98.17 |
-| RTX 2080Ti (pytorch) | 111.47 |   155.08   | **155.40** | 132.38 | 110.22 |  95.87 |
-| Tesla P40 (onnx)     | 134.29 | **139.11** |   122.22   | 100.71 |  84.91 |  73.84 |
-| Tesla P40 (pytorch)  | 108.46 | **118.71** |   107.99   |  85.34 |  63.67 |  47.16 |
+| GPU/batch size        |    1   |      2     |      4     |      8     |   16   |   32   |
+|-----------------------|:------:|:----------:|:----------:|:----------:|:------:|:------:|
+| NVIDIA H100 (onnx)    | 365.26 |   545.62   |   694.03   | **750.14** | 698.55 | 575.51 |
+| NVIDIA H100 (pytorch) | 216.78 |   345.62   |   444.69   | **451.34** | 401.60 | 370.30 |
+| RTX 4090 (onnx)       | 443.78 |   585.20   | **631.64** |   542.55   | 436.59 | 358.92 |
+| RTX 4090 (pytorch)    | 286.64 |   437.60   | **472.70** |   397.95   | 315.54 | 260.67 |
+| RTX 2080Ti (onnx)     | 171.54 | **180.66** |   164.71   |   137.18   | 113.08 |  98.17 |
+| RTX 2080Ti (pytorch)  | 111.47 |   155.08   | **155.40** |   132.38   | 110.22 |  95.87 |
+| Tesla P40 (onnx)      | 134.29 | **139.11** |   122.22   |   100.71   |  84.91 |  73.84 |
+| Tesla P40 (pytorch)   | 108.46 | **118.71** |   107.99   |    85.34   |  63.67 |  47.16 |
 
 **Table 2:** GPU benchmark in messages/s for the filtered dataset. Results may vary due to CPU tokenizer performance.
 </details>
@@ -78,7 +84,7 @@ CPU insights:
 | 2x Epyc 7702 64C (onnx)    | **3.82** |  2.94 |  2.18 |  2.17 |  1.89 |  1.66 |    488.96   |
 | 2x Epyc 7702 64C (pytorch) | **2.64** |  2.14 |  1.54 |  1.55 |  1.30 |  1.04 |    337.92   |
 
-**Table 3:** CPU benchmark in **messages/thread/s**. *(@max cores) = (performance @1T)x(number of cores). It underestimates performance by disregarding hyperthreading, but overestimates by assuming same frequency at single-threaded and full load. 
+**Table 4:** CPU benchmark in **messages/thread/s**. *(@max cores) = (performance @1T)x(number of cores). It underestimates performance by disregarding hyperthreading, but overestimates by assuming same frequency at single-threaded and full load. 
 </details>
 
 ## Documentation
