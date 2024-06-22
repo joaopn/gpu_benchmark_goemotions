@@ -6,9 +6,8 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from optimum.onnxruntime import ORTModelForSequenceClassification
 import time
 
-def sentiment_analysis_onnx_batched(model_id, df, field_name, batch_size, gpu_id):
-    file_name = "onnx/model.onnx"
-
+def sentiment_analysis_onnx_batched(model_id, file_name, df, field_name, batch_size, gpu_id):
+    
     model = ORTModelForSequenceClassification.from_pretrained(model_id, file_name=file_name, provider="CUDAExecutionProvider", provider_options={'device_id': gpu_id})
     tokenizer = AutoTokenizer.from_pretrained(model_id)
 
@@ -85,15 +84,22 @@ def sentiment_analysis_batched(model_id, df, field_name, batch_size, gpu_id):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark GPUs running BERT code")
     parser.add_argument("--dataset", type=str, choices=["normal", "filtered"], default="normal", help="Dataset to use")
-    parser.add_argument("--model", type=str, choices=["pytorch", "onnx"], default="pytorch", help="Model to use")
+    parser.add_argument("--model", type=str, choices=["pytorch", "onnx", "onnx-fp16"], default="pytorch", help="Model to use")
     parser.add_argument("--gpu", type=int, default=0, help="GPU ID to use")
     parser.add_argument("--batches", type=str, default="1,2,4,8,16,32", help="Comma-separated batch sizes to run")
 
     args = parser.parse_args()
 
-    field_name = "body"
+    # Models
     model_id = "SamLowe/roberta-base-go_emotions"
+
     model_id_onnx = "SamLowe/roberta-base-go_emotions-onnx"
+    file_name_onnx = "onnx/model.onnx"
+    
+    model_id_onnx_fp16 = "joaopn/roberta-base-go_emotions-onnx-fp16"
+    file_name_onnx_fp16 = "model.onnx"
+
+    field_name = "body"
 
     if args.dataset == "filtered":
         str_dataset = 'data/random_sample_10k_filtered.csv.gz'
@@ -106,9 +112,11 @@ if __name__ == "__main__":
     batch_sizes = [int(x) for x in args.batches.split(',')]
     for batch_size in batch_sizes:
         if args.model == "onnx":
-            elapsed_time, messages_per_second = sentiment_analysis_onnx_batched(model_id_onnx, df, field_name, batch_size=batch_size, gpu_id=args.gpu)
+            elapsed_time, messages_per_second = sentiment_analysis_onnx_batched(model_id_onnx, file_name_onnx, df, field_name, batch_size=batch_size, gpu_id=args.gpu)
         elif args.model == "pytorch":
             elapsed_time, messages_per_second = sentiment_analysis_batched(model_id, df, field_name, batch_size=batch_size, gpu_id=args.gpu)
+        elif args.model == "onnx-fp16":
+            elapsed_time, messages_per_second = sentiment_analysis_onnx_batched(model_id_onnx_fp16, file_name_onnx_fp16, df, field_name, batch_size=batch_size, gpu_id=args.gpu)
    
         results[batch_size] = {'elapsed_time': elapsed_time, 'messages_per_second': messages_per_second}
 
