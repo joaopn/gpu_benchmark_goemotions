@@ -6,100 +6,86 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from optimum.onnxruntime import ORTModelForSequenceClassification
 import time
 
-def sentiment_analysis_onnx_batched(model_id, file_name, df, field_name, batch_size, gpu_id):
-    
-    model = ORTModelForSequenceClassification.from_pretrained(model_id, file_name=file_name, provider="CUDAExecutionProvider", provider_options={'device_id': gpu_id})
+def sentiment_analysis_batched(df, device_type, model_type, model_id, batch_size, field_name, file_name = None, gpu_id=0, num_threads=1):
+
+    if device_type == 'gpu':
+        device = torch.device(f'cuda:{gpu_id}')
+    elif device_type == 'cpu':
+        device = torch.device('cpu')
+        torch.set_num_threads(num_threads)
+
+    if model_type == 'torch':
+        model = AutoModelForSequenceClassification.from_pretrained(model_id)
+        model.to(device)
+
+    elif model_type == 'onnx':
+        if device_type == 'cpu':
+            model = ORTModelForSequenceClassification.from_pretrained(model_id, file_name=file_name, provider="CPUExecutionProvider")
+        elif device_type == 'gpu':
+            model = ORTModelForSequenceClassification.from_pretrained(model_id, file_name=file_name, provider="CUDAExecutionProvider", provider_options={'device_id': gpu_id})
+
     tokenizer = AutoTokenizer.from_pretrained(model_id)
 
-    # Function to classify emotions of multiple texts in batched mode and return scores
-    def classify_texts(texts):
-        # Tokenize the batch of texts
-        inputs = tokenizer(texts, return_tensors="pt", padding=True, truncation=True, max_length=512)
-        outputs = model(**inputs)
-
-        probabilities = torch.sigmoid(outputs.logits)
-        labels = model.config.id2label  # Adjust if necessary
-        
-        # Process each item in the batch
-        batch_results = []
-        for prob in probabilities:
-            result = {labels[i]: prob_item.item() for i, prob_item in enumerate(prob.squeeze())}
-            batch_results.append(result)
-            
-        return batch_results
-
     start_time = time.time()
-
-    # Placeholder for aggregated results
     results = []
-    
-    # Iterate through the DataFrame in batches
-    for start in tqdm(range(0, len(df), batch_size), desc=f"(batch size {batch_size})"):
-        end = start + batch_size
-        batch_texts = df[field_name].iloc[start:end].tolist()
-        
-        # Apply classify_text to the entire batch at once
-        batch_results = classify_texts(batch_texts)
-        
-        # Assuming batch_results is a list of dictionaries
-        results.extend(batch_results)
-        
-    # Merge the results with the original DataFrame
-    results_df = pd.DataFrame(results, index=df.index[:len(results)])
-    df = pd.concat([df, results_df], axis=1)
 
-    elapsed_time = time.time() - start_time
-    messages_per_second = len(df) / elapsed_time
+    # Precompute id2label mapping
+    id2label = model.config.id2label
 
-    return elapsed_time, messages_per_second
-
-def sentiment_analysis_batched(model_id, df, field_name, batch_size, gpu_id):
-    tokenizer = AutoTokenizer.from_pretrained(model_id, legacy=False)
-    model = AutoModelForSequenceClassification.from_pretrained(model_id)
-    model.to(f'cuda:{gpu_id}')
-
-    start_time = time.time()
-    results_df = pd.DataFrame()
     for start_idx in tqdm(range(0, len(df), batch_size), desc=f"(Batch size {batch_size})"):
         end_idx = start_idx + batch_size
         texts = df[field_name].iloc[start_idx:end_idx].tolist()
 
         inputs = tokenizer(texts, padding=True, truncation=True, return_tensors="pt", max_length=512)
-        input_ids = inputs['input_ids'].to(f'cuda:{gpu_id}')
-        attention_mask = inputs['attention_mask'].to(f'cuda:{gpu_id}')
+        input_ids = inputs['input_ids'].to(device)
+        attention_mask = inputs['attention_mask'].to(device)
 
         with torch.no_grad():
             outputs = model(input_ids, attention_mask=attention_mask)
-        predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
+        predictions = torch.nn.functional.sigmoid(outputs.logits)  # Use sigmoid for multi-label classification
 
-        batch_results = [{'label': model.config.id2label[prediction.argmax().item()], 'score': prediction.max().item()} for prediction in predictions]
-        batch_results_df = pd.DataFrame(batch_results, index=range(start_idx, start_idx + len(batch_results)))
-        results_df = pd.concat([results_df, batch_results_df], axis=0)
+        # Collect predictions on GPU
+        results.append(predictions)
+
+    # Concatenate all results on GPU
+    all_predictions = torch.cat(results, dim=0).cpu().numpy()
+
+    # Convert to DataFrame
+    predictions_df = pd.DataFrame(all_predictions, columns=[id2label[i] for i in range(all_predictions.shape[1])])
+
+    # Add prediction columns to the original DataFrame
+    combined_df = pd.concat([df.reset_index(drop=True), predictions_df], axis=1)
 
     elapsed_time = time.time() - start_time
     messages_per_second = len(df) / elapsed_time
 
-    return elapsed_time, messages_per_second
+    return elapsed_time, messages_per_second, combined_df
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark GPUs running BERT code")
-    parser.add_argument("--dataset", type=str, choices=["normal", "filtered"], default="normal", help="Dataset to use")
-    parser.add_argument("--model", type=str, choices=["pytorch", "onnx", "onnx-fp16"], default="pytorch", help="Model to use")
-    parser.add_argument("--gpu", type=int, default=0, help="GPU ID to use")
+    parser.add_argument("--dataset", type=str, choices=["normal", "filtered"], default="normal", help="Dataset to use (normal or filtered)")
+    parser.add_argument("--model", type=str, choices=["torch", "onnx", "onnx-fp16"], help="Model to use (torch, onnx or onnx-fp16)")
+    parser.add_argument("--device", type=str, choices=["cpu", "gpu"], help="Device to use (cpu or gpu)")
+    parser.add_argument("--gpu", type=int, default=0, help="GPU ID to use (default 0)")
     parser.add_argument("--batches", type=str, default="1,2,4,8,16,32", help="Comma-separated batch sizes to run")
+    parser.add_argument("--threads", type=int, default=1, help="Number of CPU threads to use (default 1)")
 
     args = parser.parse_args()
 
     # Models
-    model_id = "SamLowe/roberta-base-go_emotions"
+    model_ids = {
+        "torch": {'model_type': 'torch', 'model_id': "SamLowe/roberta-base-go_emotions", 'file_name': None},
+        "onnx": {'model_type': 'onnx', 'model_id': "SamLowe/roberta-base-go_emotions-onnx", 'file_name': "onnx/model.onnx"},
+        "onnx-fp16": {'model_type': 'onnx', 'model_id': "joaopn/roberta-base-go_emotions-onnx-fp16", 'file_name': "model.onnx"}
+    }
 
-    model_id_onnx = "SamLowe/roberta-base-go_emotions-onnx"
-    file_name_onnx = "onnx/model.onnx"
-    
-    model_id_onnx_fp16 = "joaopn/roberta-base-go_emotions-onnx-fp16"
-    file_name_onnx_fp16 = "model.onnx"
+
+    if args.model == "onnx-fp16" and args.device == "cpu":
+        raise ValueError("ONNX FP16 models are only supported on GPUs")
 
     field_name = "body"
+    model = args.model
+    model_params = model_ids[model]
 
     if args.dataset == "filtered":
         str_dataset = 'data/random_sample_10k_filtered.csv.gz'
@@ -108,20 +94,23 @@ if __name__ == "__main__":
 
     df = pd.read_csv(str_dataset, compression='gzip')
 
+
     results = {}
     batch_sizes = [int(x) for x in args.batches.split(',')]
     for batch_size in batch_sizes:
-        if args.model == "onnx":
-            elapsed_time, messages_per_second = sentiment_analysis_onnx_batched(model_id_onnx, file_name_onnx, df, field_name, batch_size=batch_size, gpu_id=args.gpu)
-        elif args.model == "pytorch":
-            elapsed_time, messages_per_second = sentiment_analysis_batched(model_id, df, field_name, batch_size=batch_size, gpu_id=args.gpu)
-        elif args.model == "onnx-fp16":
-            elapsed_time, messages_per_second = sentiment_analysis_onnx_batched(model_id_onnx_fp16, file_name_onnx_fp16, df, field_name, batch_size=batch_size, gpu_id=args.gpu)
-   
+
+        elapsed_time, messages_per_second,_ = sentiment_analysis_batched(df, args.device, model_params['model_type'], model_params['model_id'], batch_size, field_name, model_params['file_name'], gpu_id=0, num_threads=args.threads)
+
         results[batch_size] = {'elapsed_time': elapsed_time, 'messages_per_second': messages_per_second}
 
-    gpu_name = torch.cuda.get_device_name(args.gpu)
-    print("\nDataset: {}, Model: {}, GPU: {}\n".format(args.dataset, args.model, gpu_name))
-    print("size\tmessages/s")
-    for batch_size, result in results.items():
-        print(f"{batch_size}\t{result['messages_per_second']:.2f}")
+    if args.device == 'gpu':
+        gpu_name = torch.cuda.get_device_name(args.gpu)
+        print("\nDataset: {}, Model: {}, GPU: {}\n".format(args.dataset, args.model, gpu_name))
+        print("size\tmessages/s")
+        for batch_size, result in results.items():
+            print(f"{batch_size}\t{result['messages_per_second']:.2f}")
+    else:
+        print("\nDataset: {}, Model: {}, CPU threads: {}\n".format(args.dataset, args.model, args.threads))
+        print("size\tmessages/s\tmessages/s/thread")
+        for batch_size, result in results.items():
+            print(f"{batch_size}\t{result['messages_per_second']:.2f}\t\t{result['messages_per_second']/args.threads:.2f}")
