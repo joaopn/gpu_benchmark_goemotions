@@ -1,18 +1,12 @@
 # GPU Benchmark GoEmotions
 
-GPU and CPU Benchmark of the [`SamLowe/roberta-base-go_emotions`](https://huggingface.co/SamLowe/roberta-base-go_emotions) model on a dataset of 10k random reddit comments, with pytorch ([`torch`](https://huggingface.co/SamLowe/roberta-base-go_emotions)), ONNX ([`onnx`](https://huggingface.co/SamLowe/roberta-base-go_emotions-onnx)), and optimized FP16 ONNX versions ([`onnx-fp16`](https://huggingface.co/joaopn/roberta-base-go_emotions-onnx-fp16)). 
+GPU and CPU Benchmark of the [`SamLowe/roberta-base-go_emotions`](https://huggingface.co/SamLowe/roberta-base-go_emotions) model on a dataset of 10k random reddit comments, with pytorch ([`torch`](https://huggingface.co/SamLowe/roberta-base-go_emotions)), ONNX ([`onnx`](https://huggingface.co/SamLowe/roberta-base-go_emotions-onnx)), and O4-optimized FP16 ONNX versions ([`onnx-fp16`](https://huggingface.co/joaopn/roberta-base-go_emotions-onnx-fp16)). 
 
 ## Results
 GPU insights:
-- ONNX with CUDA is up to ~40% faster than torch. It can be optimized further with [TensorRT](https://huggingface.co/docs/optimum/onnxruntime/usage_guides/gpu#tensorrtexecutionprovider) or [model quantization](https://huggingface.co/docs/optimum/main/en/onnxruntime/usage_guides/quantization)
-- For reddit comments on the GPU, batch size 2 or 4 is usually fastest
-- The RTX 4090 is 4-5X faster than a Tesla P40, but around 9X more expensive (~$1800 vs ~$200 used)
-- The H100 performs 10-20% better than the 4090, but it is around 15X more expensive (thanks @ruggsea for the H100 and P100 numbers!)
-
-CPU insights:
-- ONNX is up to ~60% faster than torch.  It can be optimized further with [model quantization](https://huggingface.co/docs/optimum/main/en/onnxruntime/usage_guides/)
-- For reddit comments on the CPU, unbatched and single-threaded is always faster
-- A fully loaded 2x Epyc 7702 64C (Zen2 Rome) system is about equivalent to the RTX 4090 (~20% faster on the normal dataset, ~20% slower on the filtered dataset)
+- The FP16 optimized model is up to **3X** faster than torch. The gain depends on the GPU's specific FP32:FP16 ratio.
+- Base ONNX with CUDA is up to ~40% faster than torch. In theory, it can be optimized further with [TensorRT](https://huggingface.co/docs/optimum/onnxruntime/usage_guides/gpu#tensorrtexecutionprovider).
+- The RTX 4090 is both 9X faster and 9X more expensive than the P40 (~$1800 vs ~$200 used) with FP16 ONNX, and only 4-5X faster with the other models.
 
 
 ### Benchmark results
@@ -24,9 +18,9 @@ CPU insights:
 
 | GPU/batch size           |    1    |      2     |      4      |      8      |    16   |    32   |
 |--------------------------|:-------:|:----------:|:-----------:|:-----------:|:-------:|:-------:|
-| Geforce 4090 (onnx-fp16) | 1042.47 |   1042.47  |   2280.61   | **2551.59** | 2346.59 | 2346.59 |
-| Geforce 4090 (onnx)      |  595.40 |   963.06   | **1232.12** |   1183.82   |  919.05 |  646.79 |
-| Geforce 4090 (torch)     |  323.75 |   564.39   |    857.28   |  **876.10** |  668.70 |  462.63 |
+| RTX 4090 (onnx-fp16) | 1042.47 |   1042.47  |   2280.61   | **2551.59** | 2346.59 | 2346.59 |
+| RTX 4090 (onnx)      |  595.40 |   963.06   | **1232.12** |   1183.82   |  919.05 |  646.79 |
+| RTX 4090 (torch)     |  323.75 |   564.39   |    857.28   |  **876.10** |  668.70 |  462.63 |
 | Tesla P40 (onnx-fp16)    |  263.18 | **286.72** |    255.36   |    200.65   |  148.89 |  108.92 |
 | Tesla P40 (onnx)         |  212.35 | **260.29** |    247.01   |    202.54   |  155.42 |  119.59 |
 | Tesla P40 (torch)        |  162.19 |   218.12   |  **221.68** |    177.85   |  124.72 |  80.36  |
@@ -39,9 +33,9 @@ CPU insights:
 
 | GPU/batch size           |    1   |      2     |      4     |      8      |    16   |    32   |
 |--------------------------|:------:|:----------:|:----------:|:-----------:|:-------:|:-------:|
-| Geforce 4090 (onnx-fp16) | 856.65 |   1209.98  |   1438.25  | **1513.05** | 1395.42 | 1221.52 |
-| Geforce 4090 (onnx)      | 494.28 |   673.83   | **740.03** |    610.06   |  472.35 |  382.72 |
-| Geforce 4090 (torch)     | 302.38 |   476.46   | **548.32** |    450.82   |  338.37 |  273.01 |
+| RTX 4090 (onnx-fp16) | 856.65 |   1209.98  |   1438.25  | **1513.05** | 1395.42 | 1221.52 |
+| RTX 4090 (onnx)      | 494.28 |   673.83   | **740.03** |    610.06   |  472.35 |  382.72 |
+| RTX 4090 (torch)     | 302.38 |   476.46   | **548.32** |    450.82   |  338.37 |  273.01 |
 | Tesla P40 (onnx-fp16)    | 154.33 | **150.74** |   126.01   |    101.90   |  81.77  |  68.15  |
 | Tesla P40 (onnx)         | 138.25 | **142.59** |   125.45   |    103.09   |  86.84  |  75.27  |
 | Tesla P40 (torch)        | 117.11 | **128.19** |   113.87   |    88.03    |  64.88  |  47.76  |
